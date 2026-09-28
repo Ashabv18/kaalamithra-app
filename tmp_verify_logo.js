@@ -1,0 +1,3 @@
+const http=require('http');
+function get(p){return new Promise(res=>{const q=http.get('http://127.0.0.1:5500/kaalamithra-complete/app/'+p,{timeout:4000},r=>{let n=0;r.on('data',c=>n+=c.length);r.on('end',()=>res(p+' -> '+r.statusCode+' bytes='+n+' type='+r.headers['content-type']))});q.on('error',e=>res(p+' ERR '+e.message))})}
+Promise.all([get('images/km-logo.png'),get('index.html')]).then(a=>{console.log(a.join('\n')); const fs=require('fs'); const t=fs.readFileSync('C:\\Users\\Lenovo\\Downloads\\kaalamithra-complete (1)\\kaalamithra-complete\\app\\index.html','utf8'); console.log('logo ref in html: '+(t.includes('images/km-logo.png')?'YES':'NO')); });
