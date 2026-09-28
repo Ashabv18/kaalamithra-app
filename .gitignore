@@ -40,7 +40,11 @@ run_front_bg.js
 *_scan_all.txt
 output_*.png
 
+# scratch copy helpers / local-only listings (source lives in Downloads, dest public-site/ is tracked)
+scripts/list_frontend.js
+
 # Backups / archives
 backend.zip
 *.bak
 *.tmp
+

@@ -97,8 +97,19 @@ app.use('/api/client', clientRoutes);
 //   /admin/login | /admin/dashboard
 app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 app.use('/client', express.static(path.join(__dirname, 'public', 'client')));
+// Full marketing/logo frontend (deployed to Vercel as the homepage).
+// Served from public-site/ (copied from the local kaalamithra-complete app via scripts/copy_frontend.js).
+// Backend auth/admin/client pages stay under /welcome, /login, /admin/*, /client/*.
+// The root static mount MUST come after the page GET routes above (so /welcome etc.
+// keep serving backend pages) but before /api + error handler: index.html refs
+// images via relative URLs, so the browser requests /images/km-logo.png.
+app.use('/site', express.static(path.join(__dirname, 'public-site')));
+app.use(express.static(path.join(__dirname, 'public-site')));
+app.get('/app', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public-site', 'index.html'));
+});
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'welcome.html'));
+  res.sendFile(path.join(__dirname, 'public-site', 'index.html'));
 });
 app.get('/welcome', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'welcome.html'));
@@ -123,14 +134,15 @@ app.get('/client/dashboard', (req, res) => {
 });
 
 // API-only server: marketing frontend is served by Live Server at http://127.0.0.1:5500/kaalamithra-complete/app/
-// (frontend file lives at C:\Users\Lenovo\Downloads\kaalamithra-complete\kaalamithra-complete\app\index.html,
-//  NOT inside C:\Users\Lenovo\backend). So Express does NOT serve static frontend files.
+// (frontend file lives at C:\Users\Lenovo\Downloads\kaalamithra-complete (1)\kaalamithra-complete\app\index.html).
+// On Vercel the same file is copied to public-site/ and served as the homepage at / (see routes above).
 
-// API status (moved off / so / can be the Welcome screen)
+// API status (backend pages live under /welcome, /login, /admin/*, /client/*;
+// the marketing/logo app is the homepage at / and /app, static assets under /site)
 app.get('/api', (req, res) => {
   res.json({
     success: true,
-    message: 'Kaalamithra backend API running. Frontend is served by Live Server at http://127.0.0.1:5500/kaalamithra-complete/app/',
+    message: 'Kaalamithra backend API running. Marketing app at / (public-site).',
     endpoints: ['GET /api/health', 'GET /api/inquiries', 'POST /api/inquiries'],
   });
 });
@@ -279,6 +291,8 @@ app.get('/api/inquiries', requireAuth, async (req, res) => {
 });
 
 // Explicit error handler so Vercel recycles the function cleanly on 500s.
+// NOTE: must be registered AFTER all routes (including the public-site
+// static/homepage routes above) so page + API errors are handled, not skipped.
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
