@@ -20,21 +20,9 @@ const server = http.createServer((req, res) => {
     fs.createReadStream(file).pipe(res);
   });
 });
-server.listen(PORT, HOST, () => console.log('FRONTEND static on http://' + HOST + ':' + PORT + '/kaalamithra-complete/app/ (no-store; ROOT=' + ROOT + ')'));
-function check(url) {
-  return new Promise((resolve) => {
-    http.get(url, { timeout: 4000 }, (r) => { let n = 0; r.on('data', (c) => n += c.length); r.on('end', () => resolve(url + ' -> ' + r.statusCode + ' bytes=' + n)); }).on('error', (e) => resolve(url + ' ERR ' + e.message));
-  });
-}
-async function selftest() {
-  await new Promise((r) => setTimeout(r, 500));
-  const a = await check('http://127.0.0.1:5500/kaalamithra-complete/app/index.html');
-  const b = await check('http://127.0.0.1:5500/kaalamithra-complete/app/images/km-logo.png');
-  console.log(a + '\n' + b);
-}
 if (require.main === module) {
-  if (process.argv[2] === 'serve') { console.log('serving...'); }
-  else { selftest().then(() => process.exit(0)); }
+  server.listen(PORT, HOST, () => console.log('FRONTEND static on http://' + HOST + ':' + PORT + '/kaalamithra-complete/app/ (no-store; ROOT=' + ROOT + ')'));
+} else {
+  module.exports = server;
 }
-module.exports = server;
 
