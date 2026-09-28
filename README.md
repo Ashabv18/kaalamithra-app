@@ -27,6 +27,22 @@ Server runs on `http://localhost:5000` by default.
 - `FRONTEND_URL` (or `CORS_ORIGINS`) — deployed frontend origin(s) for CORS
 - `NODE_ENV=production` on Vercel (enables SSL pool + Secure cookies)
 
+## Run the full app locally (backend + logo frontend)
+
+```bash
+node run_app.js              # starts backend :5000 + frontend :5500 (detached, logs to run-*.log)
+node scripts/check_running.js  # verify: /api/health + /welcome + app/index.html + km-logo.png all 200
+```
+
+- Backend API: `http://127.0.0.1:5000` (`/welcome`, `/login`, `/api/health`)
+- Logo frontend (patched file, NOT in this repo):
+  `C:\Users\Lenovo\Downloads\kaalamithra-complete (1)\kaalamithra-complete\app\index.html`
+  served at `http://127.0.0.1:5500/kaalamithra-complete/app/`
+  (`images/km-logo.png` = real logo; `backend/public/login.html` is only the K-box page).
+- Local DB: `kaalamithra_db` (`users=24`, `inquiries=4` as of 2026-09-28;
+  `admin@kaalamithra-ai.com` active). Vercel uses a separate hosted
+  `DATABASE_URL`, so counts differ there by design.
+
 ## Deploying on Vercel (same repo serves API + pages)
 
 1. `git push origin main` (includes `vercel.json`, `api/index.js`, `lib/`).
