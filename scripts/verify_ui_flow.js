@@ -1,6 +1,9 @@
 // Cookie + UI page flow test (what the browser actually does on /admin/* and /client/*).
 try { require('dotenv').config({ quiet: true }); } catch (e) { /* live mode */ }
 const http = require('http');
+// Point the suite at any running instance (local :5000, a clone on :5055, ...).
+const HOST = process.env.KM_HOST || '127.0.0.1';
+const PORT = Number(process.env.KM_PORT || 5000);
 let COOKIE = '';
 function req(method, p, body, extraHeaders) {
   return new Promise((resolve) => {
@@ -8,7 +11,7 @@ function req(method, p, body, extraHeaders) {
     const headers = Object.assign({}, extraHeaders || {});
     if (data) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(data); }
     if (COOKIE) headers['Cookie'] = COOKIE;
-    const q = http.request({ host: '127.0.0.1', port: 5000, path: p, method, timeout: 8000, headers }, (r) => {
+    const q = http.request({ host: HOST, port: PORT, path: p, method, timeout: 8000, headers }, (r) => {
       let b = '';
       r.on('data', (c) => (b += c));
       r.on('end', () => {

@@ -1,12 +1,15 @@
 try { require('dotenv').config({ quiet: true }); } catch (e) { /* no .env — live-mode only */ }
 const http = require('http');
+// Point the suite at any running instance (local :5000, a clone on :5055, ...).
+const HOST = process.env.KM_HOST || '127.0.0.1';
+const PORT = Number(process.env.KM_PORT || 5000);
 function req(method, p, body, token) {
   return new Promise((resolve) => {
     const data = body ? JSON.stringify(body) : null;
     const headers = {};
     if (data) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(data); }
     if (token) headers['Authorization'] = 'Bearer ' + token;
-    const q = http.request({ host: '127.0.0.1', port: 5000, path: p, method, timeout: 8000, headers }, (r) => {
+    const q = http.request({ host: HOST, port: PORT, path: p, method, timeout: 8000, headers }, (r) => {
       let b = '';
       const cookies = r.headers['set-cookie'] || [];
       r.on('data', (c) => b += c.toString());
