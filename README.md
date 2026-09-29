@@ -118,6 +118,12 @@ git push origin main && git push ashabv18 main:main
 Parity is proven by the commit/tree hash, not by eye:
 `git rev-parse main` vs `git ls-remote --heads <remote>` must match.
 
+`.gitattributes` pins text files to LF (`* text=auto eol=lf`, batch files stay
+CRLF, images binary). Without it `core.autocrlf=true` rewrites text files to
+CRLF on Windows checkout, so a fresh clone served responses a few bytes longer
+than the reference workspace — whitespace-only, but enough to break byte-level
+comparison of `/`, `/call.html` etc.
+
 ## Status verified on 2026-09-29
 
 - Local (`kaalamithra_db`): `ALL_ACCESS_CHECKS_PASSED` + `UI_FLOW_PASSED`,
