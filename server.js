@@ -2,7 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
-try { require('dotenv').config(); } catch (e) { /* dotenv optional on Vercel */ }
+// ---- Local .env loading (dev convenience only) ----
+// dotenv must NEVER override real environment variables (Vercel dashboard).
+// dotenv@17 also auto-injects via preload, so guard with DOTENV_CONFIG_OVERRIDE
+// and only load when a .env file actually sits next to server.js.
+if (!process.env.VERCEL && process.env.DOTENV_CONFIG_OVERRIDE !== 'false') {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    if (fs.existsSync(path.join(__dirname, '.env'))) require('dotenv').config({ override: false });
+  } catch (e) { /* dotenv missing / no .env — fine */ }
+}
 const jwt = require('jsonwebtoken');
 const { pool } = require('./lib/db');
 const { requireAuth, requireAdmin, optionalAuth } = require('./middleware/auth');
@@ -17,7 +27,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'kaalamithra-secret-change-me';
 const PORT = process.env.PORT || 5000;
 
 // Auto-create tables on boot (matches pgAdmin inquiries table + company support)
+// Skips entirely when DATABASE_URL is not configured (e.g. Vercel preview
+// without env vars) so boot never crashes — /api/health reports the problem.
 async function initDb() {
+  if (!process.env.DATABASE_URL) {
+    console.error('DB init skipped: DATABASE_URL is not set on this deployment.');
+    return;
+  }
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS inquiries (
       id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT,
@@ -89,6 +105,7 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
+app.post('/api/setup', require('./routes/setup'));
 
 // Role-separated login UI (Kaala Mithra branding).
 // PUBLIC (visible to everyone): /welcome | /login (client only) | /signup (client only)
@@ -263,7 +280,7 @@ app.post('/api/inquiries', optionalAuth, async (req, res) => {
 
 // Health check for frontend debugging
 app.get('/api/health', async (req, res) => {
-  if (!process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL || pool.isUnconfigured) {
     console.error('Health: DATABASE_URL is not set on this deployment.');
     return res.status(500).json({
       success: false,

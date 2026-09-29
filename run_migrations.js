@@ -1,4 +1,10 @@
-try { require('dotenv').config(); } catch (e) { /* dotenv optional on Vercel */ }
+try {
+  // dotenv is local-dev only — never override real env (Vercel dashboard vars).
+  if (!process.env.VERCEL && !process.env.DOTENV_CONFIG_PATH) {
+    const fs2 = require('fs');
+    if (fs2.existsSync(require('path').join(__dirname, '.env'))) require('dotenv').config();
+  }
+} catch (e) { /* dotenv optional on Vercel */ }
 const { createPool } = require('./lib/db');
 const fs = require('fs');
 const path = require('path');
