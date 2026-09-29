@@ -15,7 +15,7 @@ if (!process.env.VERCEL && process.env.DOTENV_CONFIG_OVERRIDE !== 'false') {
 }
 const jwt = require('jsonwebtoken');
 const { pool } = require('./lib/db');
-const { requireAuth, requireAdmin, optionalAuth } = require('./middleware/auth');
+const { requireAuth, requireAdmin, optionalAuth, roleOf } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const clientRoutes = require('./routes/client');
@@ -296,11 +296,23 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// GET Route: Fetch Inquiries (PRIVATE: client data -> requires authenticated session)
+// GET Route: Fetch Inquiries (PRIVATE: client data -> requires authenticated session).
+// ROLE-SCOPED: admins see everything; a client only ever sees rows they own
+// (row linked by user_id, or submitted with their own account email). Without
+// this scoping any logged-in client could read every other client's enquiry.
 app.get('/api/inquiries', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM inquiries ORDER BY id DESC;');
-    res.json({ success: true, data: result.rows });
+    const isAdmin = roleOf(req.user) === 'admin';
+    const result = isAdmin
+      ? await pool.query('SELECT * FROM inquiries ORDER BY id DESC;')
+      : await pool.query(
+          `SELECT * FROM inquiries
+            WHERE user_id = $1
+               OR email = (SELECT email FROM users WHERE id = $1)
+            ORDER BY id DESC;`,
+          [req.user.id]
+        );
+    res.json({ success: true, count: result.rowCount, data: result.rows });
   } catch (err) {
     console.error('❌ Database FETCH Error:', err.message);
     res.status(500).json({ success: false, error: err.message });
