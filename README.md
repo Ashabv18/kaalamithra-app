@@ -75,6 +75,16 @@ node scripts/verify_live.js          # read-only smoke test of the deployed app
 node scripts/probe_live_root.js      # status/body of "/" on Vercel (homepage regression)
 ```
 
+Both verify suites hit `127.0.0.1:5000` by default; point them at any other
+running copy (a second clone of this repo, a preview build) with
+`KM_HOST` / `KM_PORT`:
+
+```bash
+node server.js                       # in a fresh clone of this repo, on another port
+set PORT=5055&& node server.js
+set KM_PORT=5055&& node scripts/verify_access.js && set KM_PORT=5055&& node scripts/verify_ui_flow.js
+```
+
 - `verify_access.js` + `verify_ui_flow.js` create throwaway client users/inquiries with
   timestamped emails and delete them at the end (`CLEANUP removed ... baseline ...`).
 - Row-level scoping is asserted explicitly: a client calling `GET /api/inquiries`
@@ -95,10 +105,27 @@ It calls `POST /api/setup {"key": ...}` (applies `migrations/*.sql`, self-heals
 `/api/health`, logs in as admin, and writes+reads one probe inquiry. Expected last
 line: `HOSTED_DB_READY`. Change the seeded admin password right after the first login.
 
+## Git remotes (identical content)
+
+`main` is pushed to both GitHub remotes; keep them in sync so either one can be
+cloned and run:
+
+```bash
+git remote add ashabv18 https://github.com/Ashabv18/kaalamithra-app.git   # one-time
+git push origin main && git push ashabv18 main:main
+```
+
+Parity is proven by the commit/tree hash, not by eye:
+`git rev-parse main` vs `git ls-remote --heads <remote>` must match.
+
 ## Status verified on 2026-09-29
 
 - Local (`kaalamithra_db`): `ALL_ACCESS_CHECKS_PASSED` + `UI_FLOW_PASSED`,
   baseline `inquiries=4 users=24`, `/` serves the logo app (135 KB).
+- Fresh clone of `https://github.com/Ashabv18/kaalamithra-app.git` run on `:5055`
+  (`KM_PORT=5055`): same `ALL_ACCESS_CHECKS_PASSED` + `UI_FLOW_PASSED` output and
+  the same route statuses as `:5000` — the pushed code behaves exactly like
+  localhost (needs `npm install` + a `.env` copied from `.env.example`).
 - Live `https://kaalamithra-app.vercel.app`: `/`, `/app`, `/welcome`, `/login`,
   `/client/login`, `/admin/login` → `200`; `GET /api/inquiries` → `401`;
   `/api/health` + sign-in → clean `DATABASE_URL is not set ...` message.
