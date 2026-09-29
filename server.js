@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require('bcryptjs');
 // ---- Local .env loading (dev convenience only) ----
 // dotenv must NEVER override real environment variables (Vercel dashboard).
@@ -8,8 +9,6 @@ const bcrypt = require('bcryptjs');
 // and only load when a .env file actually sits next to server.js.
 if (!process.env.VERCEL && process.env.DOTENV_CONFIG_OVERRIDE !== 'false') {
   try {
-    const fs = require('fs');
-    const path = require('path');
     if (fs.existsSync(path.join(__dirname, '.env'))) require('dotenv').config({ override: false });
   } catch (e) { /* dotenv missing / no .env — fine */ }
 }
@@ -121,13 +120,26 @@ app.use('/client', express.static(path.join(__dirname, 'public', 'client')));
 // keep serving backend pages) but before /api + error handler: index.html refs
 // images via relative URLs, so the browser requests /images/km-logo.png.
 app.use('/site', express.static(path.join(__dirname, 'public-site')));
-app.use(express.static(path.join(__dirname, 'public-site')));
-app.get('/app', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public-site', 'index.html'));
-});
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public-site', 'index.html'));
-});
+// index:false — never let the static middleware resolve "/" itself. On Vercel its
+// internal sendFile of index.html can throw (surfacing as a 500 on the homepage),
+// while the explicit route below (same file, same code path as /app) always works.
+app.use(express.static(path.join(__dirname, 'public-site'), { index: false }));
+const HOME_HTML = path.join(__dirname, 'public-site', 'index.html');
+function sendHome(res) {
+  fs.readFile(HOME_HTML, (err, buf) => {
+    if (err) {
+      console.error('HOME_READ_FAIL', err.code || err.message, HOME_HTML);
+      return res.status(500).json({
+        success: false,
+        error: 'Homepage file unavailable: ' + (err.code || err.message),
+      });
+    }
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(buf);
+  });
+}
+app.get('/app', (req, res) => sendHome(res));
+app.get('/', (req, res) => sendHome(res));
 app.get('/welcome', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'welcome.html'));
 });
@@ -325,7 +337,12 @@ app.get('/api/inquiries', requireAuth, async (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ success: false, error: 'Internal server error.' });
+  // Set KM_DEBUG_ERRORS='true' in Vercel env to surface the real reason
+  // (e.g. ENOENT on a bundled file) without redeploying.
+  const detail = process.env.KM_DEBUG_ERRORS === 'true' && (err.code || err.message)
+    ? ' Internal detail: ' + (err.code || err.message)
+    : '';
+  res.status(500).json({ success: false, error: 'Internal server error.' + detail });
 });
 
 // Local dev: long-lived server. Vercel: imported via api/index.js (no listen).
