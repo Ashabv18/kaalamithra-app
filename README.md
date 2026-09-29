@@ -62,3 +62,46 @@ node scripts/check_running.js  # verify: /api/health + /welcome + app/index.html
    - `GET /api/auth/me` → `401` (not a CORS error, not a 500)
    - Login works. If `/api/health` says `DATABASE_URL is not set`,
      the env var is missing on that deployment.
+
+## Verification harness (run these after any change)
+
+```bash
+node scripts/launch_server.js        # detached backend on :5000 (survives the shell)
+node scripts/probe_up.js             # waits until / answers, prints /api/health
+node scripts/verify_access.js        # DB + pages + admin/client roles + must-deny cases
+node scripts/verify_ui_flow.js       # cookie-session browser-style journeys (admin + client)
+node scripts/verify_nodb.js          # boots with DATABASE_URL removed: no crash, clean errors
+node scripts/verify_live.js          # read-only smoke test of the deployed app
+node scripts/probe_live_root.js      # status/body of "/" on Vercel (homepage regression)
+```
+
+- `verify_access.js` + `verify_ui_flow.js` create throwaway client users/inquiries with
+  timestamped emails and delete them at the end (`CLEANUP removed ... baseline ...`).
+- Row-level scoping is asserted explicitly: a client calling `GET /api/inquiries`
+  gets **only** its own rows (matched by `user_id` or by its own `email`), while an
+  admin gets all rows. Do not relax this without re-running the suite.
+
+## Bootstrapping the hosted database (no psql needed)
+
+After `DATABASE_URL` + `ADMIN_SETUP_KEY` exist on Vercel and the project was
+redeployed:
+
+```bash
+node scripts/run_hosted_setup.js https://kaalamithra-app.vercel.app <ADMIN_SETUP_KEY>
+```
+
+It calls `POST /api/setup {"key": ...}` (applies `migrations/*.sql`, self-heals
+`users.role/is_active`, seeds `admin@kaalamithra-ai.com`), then checks
+`/api/health`, logs in as admin, and writes+reads one probe inquiry. Expected last
+line: `HOSTED_DB_READY`. Change the seeded admin password right after the first login.
+
+## Status verified on 2026-09-29
+
+- Local (`kaalamithra_db`): `ALL_ACCESS_CHECKS_PASSED` + `UI_FLOW_PASSED`,
+  baseline `inquiries=4 users=24`, `/` serves the logo app (135 KB).
+- Live `https://kaalamithra-app.vercel.app`: `/`, `/app`, `/welcome`, `/login`,
+  `/client/login`, `/admin/login` → `200`; `GET /api/inquiries` → `401`;
+  `/api/health` + sign-in → clean `DATABASE_URL is not set ...` message.
+  **Still blocked on:** setting `DATABASE_URL` + `ADMIN_SETUP_KEY` in the Vercel
+  dashboard (Production), redeploying, then running the bootstrap above.
+
